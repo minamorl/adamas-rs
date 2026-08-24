@@ -29,9 +29,15 @@
 //! # }
 //! ```
 
+pub mod certificate;
+mod derived;
 mod intern;
 mod kernel;
+pub mod path;
+mod replay;
 
+pub use certificate::{Certificate, Condition, Rule, RuleSet, Step};
 pub use kernel::{
     Error, Kernel, Result, Term, TermNode, TheoryId, Thm, Ty, TyNode, TypeDefinition,
 };
+pub use path::{path_to_string, PathStep};

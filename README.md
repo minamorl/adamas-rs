@@ -96,12 +96,50 @@ one this port removes.
 * **Consistency is your problem once you call `new_axiom`.** The kernel will
   happily derive everything from a contradiction you asserted.
 
+## Certificate replay
+
+The point of a small kernel is that everything above it can be *untrusted*. A
+rewriter emits a **certificate** — a starting term, a list of claimed steps, and
+the term it says they reach — and `prove_certificate` rebuilds it out of the ten
+primitives or refuses. On its own a certificate proves nothing; it is a plan.
+
+```rust
+# use adamas::*;
+# use std::collections::BTreeMap;
+// ⊢ f a = f b, from `ab: ⊢ a = b` applied under `rand`.
+let cert = Certificate::new(fa, vec![Step::new(vec![PathStep::Rand], "ab")], fb, true);
+let thm = k.prove_certificate(th, &cert, &rules)?;   // ⊢ f a = f b
+# Ok::<(), Error>(())
+```
+
+Positions under a binder are opened with a variable named from the *position*
+(`_0`, `_1`, …), never from the binder's display name — a display name is
+whichever alpha-variant happened to be interned first in this process, and a
+certificate has to mean the same thing wherever it is replayed.
+
+The tests that matter are the refusals: lying about the result, about the
+position, about the substitution, naming a rule that does not exist, taking a
+path a term does not have, or offering the wrong number of condition
+certificates. Each is checked for its specific message rather than for "some
+error", and each was verified by mutation — deleting the corresponding check in
+`replay.rs` turns exactly the relevant tests red and leaves the rest green.
+
+One of those mutations is worth recording. With replay's own
+"does the rule instantiate to what is actually at that position?" check deleted,
+a bad certificate still produced no theorem: the kernel refused it at
+`TRANS: f a and f b are not the same term`. **The untrusted layer being wrong
+cannot make a false theorem — that is the entire LCF thesis, observed rather
+than asserted.**
+
 ## Status
 
-The kernel is complete and tested (33 behaviour tests, 5 doctests). The layers
-*above* the kernel in the Ruby original — the rewriter, the certificate replay,
-`logic/`, `bridge/`, `service/` — are not ported yet. The next piece is
-certificate replay, which is what makes an untrusted rewriter's claims checkable.
+Ported and tested: the kernel (33 tests), certificate replay with conditional
+rewriting (22 tests), and the compile-time forgery boundary (5 doctests).
+
+Not ported: the rewriter that *produces* certificates, and the mathematics built
+on top — `logic/`, `bridge/`, `service/`, the pattern layer. Those are the
+clever, heuristic, unverified part, which is precisely why they can wait: a
+certificate from any of them is checkable by what is already here.
 
 ## Building
 

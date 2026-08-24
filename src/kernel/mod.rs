@@ -56,6 +56,15 @@ pub enum Error {
     Rule(String),
     /// A theory-level gate refused: `Adamas::TheoryError`.
     Theory(String),
+    /// A position does not exist in a term: `Adamas::PathError`.
+    Path(String),
+    /// A certificate did not hold up: `Adamas::CertificateError`.
+    ///
+    /// The kernel itself never raises this — replay does. It lives here so the
+    /// library has one `Result`, exactly as Ruby kept one `errors.rb`.
+    Certificate(String),
+    /// A rule could not be registered or found: `Adamas::RuleSetError`.
+    RuleSet(String),
 }
 
 impl std::fmt::Display for Error {
@@ -64,6 +73,9 @@ impl std::fmt::Display for Error {
             Error::Type(m) => write!(f, "type error: {m}"),
             Error::Rule(m) => write!(f, "rule error: {m}"),
             Error::Theory(m) => write!(f, "theory error: {m}"),
+            Error::Path(m) => write!(f, "path error: {m}"),
+            Error::Certificate(m) => write!(f, "certificate error: {m}"),
+            Error::RuleSet(m) => write!(f, "rule set error: {m}"),
         }
     }
 }
