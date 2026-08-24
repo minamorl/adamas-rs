@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the toolchain
+        run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+
+      - name: Formatting
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      # The forgery boundary lives in `compile_fail` doctests, so `--all-targets`
+      # is not enough: it does not build doctests. This step is the one that
+      # asserts a `Thm` cannot be constructed from outside the kernel.
+      - name: Tests, including the doctests that pin the forgery boundary
+        run: cargo test --all-features
