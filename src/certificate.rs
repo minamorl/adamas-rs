@@ -109,64 +109,117 @@ pub struct Rule {
     pub thm: Thm,
     pub lhs: Term,
     pub rhs: Term,
+    /// The variables a match may instantiate: the free variables of the left
+    /// side. Everything else in the pattern has to occur literally.
+    pub variables: Vec<Term>,
 }
 
-/// Named rules, looked up by a certificate's steps.
+/// Named rules, looked up by a certificate's steps and searched by the
+/// rewriter.
 ///
-/// The Ruby original also refuses, at registration, a rule whose right side or
-/// hypotheses introduce variables the left side cannot determine, and a rule
-/// whose left side is a lone variable. **Those checks are not ported here**,
-/// and their absence is not a soundness gap: they exist so the *rewriter* can
-/// do its job, and replay refuses a bad step whatever was registered. What is
-/// kept is the one check replay itself relies on — a rule must be an equation.
+/// The conditions on registration are not about soundness — replay would refuse
+/// a bad step whatever was registered — they are about the rewriter being able
+/// to do its job at all:
+///
+/// * **the right side introduces nothing new**, because a variable matching
+///   cannot determine is a variable the rewriter would have to invent;
+/// * **hypotheses introduce nothing new**, for the same reason;
+/// * **the left side is not a lone variable**, which would match everything,
+///   including its own output.
+///
+/// Order of registration is the order the rewriter tries them in, so it is
+/// kept rather than sorted by name.
 #[derive(Default)]
 pub struct RuleSet {
-    rules: BTreeMap<String, Rule>,
+    rules: Vec<Rule>,
 }
 
 impl RuleSet {
     pub fn new() -> Self {
-        RuleSet {
-            rules: BTreeMap::new(),
-        }
+        RuleSet { rules: Vec::new() }
     }
 
     pub fn add(&mut self, kernel: &Kernel, name: &str, thm: Thm) -> Result<()> {
-        if self.rules.contains_key(name) {
+        if self.get(name).is_some() {
             return Err(Error::RuleSet(format!(
                 "a rule named {name} is already registered"
             )));
         }
         let Some((lhs, rhs)) = kernel.dest_eq(thm.concl()) else {
             return Err(Error::RuleSet(format!(
-                "{name} is not an equation: {}",
-                kernel.term_to_string(thm.concl())
+                "{name}: not an equation ({})",
+                kernel.thm_to_string(&thm)
             )));
         };
-        self.rules.insert(
-            name.to_string(),
-            Rule {
-                name: name.to_string(),
-                thm,
-                lhs,
-                rhs,
-            },
-        );
+        if kernel.is_var(lhs) {
+            return Err(Error::RuleSet(format!(
+                "{name}: the left side is a bare variable"
+            )));
+        }
+
+        let variables: Vec<Term> = kernel.frees(lhs).to_vec();
+        let lhs_type_vars = kernel.term_type_vars(lhs);
+
+        let undetermined = |kernel: &Kernel, side: Term| -> (Vec<String>, Vec<String>) {
+            let terms = kernel
+                .frees(side)
+                .iter()
+                .filter(|v| !variables.contains(v))
+                .map(|v| kernel.term_to_string(*v))
+                .collect();
+            let types = kernel
+                .term_type_vars(side)
+                .into_iter()
+                .filter(|t| !lhs_type_vars.contains(t))
+                .map(|t| kernel.ty_to_string(t))
+                .collect();
+            (terms, types)
+        };
+
+        for (side, where_) in std::iter::once((rhs, "on the right"))
+            .chain(thm.hyps().iter().map(|h| (*h, "in the hypotheses")))
+        {
+            let (loose_terms, loose_types) = undetermined(kernel, side);
+            if !loose_terms.is_empty() {
+                return Err(Error::RuleSet(format!(
+                    "{name}: {} {where_} is not determined by the left",
+                    loose_terms.join(", ")
+                )));
+            }
+            if !loose_types.is_empty() {
+                return Err(Error::RuleSet(format!(
+                    "{name}: type variable {} {where_} is not determined by the left",
+                    loose_types.join(", ")
+                )));
+            }
+        }
+
+        self.rules.push(Rule {
+            name: name.to_string(),
+            thm,
+            lhs,
+            rhs,
+            variables,
+        });
         Ok(())
     }
 
     pub fn fetch(&self, name: &str) -> Result<&Rule> {
-        self.rules
-            .get(name)
+        self.get(name)
             .ok_or_else(|| Error::RuleSet(format!("no such rule: {name}")))
     }
 
     pub fn get(&self, name: &str) -> Option<&Rule> {
-        self.rules.get(name)
+        self.rules.iter().find(|r| r.name == name)
+    }
+
+    /// In registration order, which is the order the rewriter tries them in.
+    pub fn iter(&self) -> impl Iterator<Item = &Rule> {
+        self.rules.iter()
     }
 
     pub fn names(&self) -> Vec<&str> {
-        self.rules.keys().map(|s| s.as_str()).collect()
+        self.rules.iter().map(|r| r.name.as_str()).collect()
     }
 
     pub fn len(&self) -> usize {
