@@ -1,0 +1,15 @@
+[package]
+name = "adamas"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "An LCF-style proof kernel. Theorems you cannot forge, terms you cannot mistype."
+repository = "https://github.com/minamorl/adamas-rs"
+keywords = ["theorem-prover", "lcf", "hol", "logic", "kernel"]
+categories = ["mathematics"]
+
+[lib]
+name = "adamas"
+path = "src/lib.rs"
+
+[dependencies]
