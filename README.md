@@ -1,5 +1,9 @@
 # adamas
 
+[![CI](https://github.com/minamorl/adamas-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/minamorl/adamas-rs/actions/workflows/ci.yml)
+[![Rust 2021](https://img.shields.io/badge/Rust-2021-CE422B.svg)](https://www.rust-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **An LCF-style proof kernel. Theorems you cannot forge, terms you cannot mistype.**
 
 A Rust port of the trusted core of [adamas](https://github.com/minamorl/adamas).
