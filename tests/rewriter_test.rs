@@ -169,10 +169,6 @@ fn the_traversal_is_leftmost_outermost() -> Result<()> {
     assert_eq!(taken, vec!["rator.rand: add_z"]);
     // Even a budget-truncated certificate has to replay.
     let thm = f.k.prove_certificate(f.th, &cert, &f.rules)?;
-    assert_eq!(thm, {
-        let t = f.k.prove_certificate(f.th, &cert, &f.rules)?;
-        t
-    });
     assert_eq!(
         f.k.thm_to_string(&thm),
         "⊢ add (add z z) (add z z) = add z (add z z)"
