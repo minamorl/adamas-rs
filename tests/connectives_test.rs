@@ -15,6 +15,7 @@ struct Fixture {
     q: Term,
     truth: Thm,
     true_right: Thm,
+    true_left: Thm,
     conjunction: Thm,
     universal: Thm,
 }
@@ -38,6 +39,7 @@ impl Fixture {
             q,
             truth: b.truth,
             true_right: b.true_right,
+            true_left: b.true_left,
             conjunction,
             universal,
         })
@@ -269,5 +271,47 @@ fn three_definitions_and_no_axiom() -> Result<()> {
     let fx = Fixture::new()?;
     assert!(fx.k.axioms(fx.th).is_empty());
     assert_eq!(fx.k.definitions(fx.th).len(), 3, "T, ∧ and ∀");
+    Ok(())
+}
+
+#[test]
+fn conj_chooses_a_witness_that_is_free_in_neither_side() -> Result<()> {
+    let mut fx = Fixture::new()?;
+    let bool_ty = fx.k.bool_ty();
+    let t = fx.k.constant(fx.th, "T", None)?;
+    // `f` is the name the encoding wants for its selector, and here it is
+    // already taken by the very proposition being conjoined.
+    let selector_ty = {
+        let inner = fx.k.ty_fun(bool_ty, bool_ty)?;
+        fx.k.ty_fun(bool_ty, inner)?
+    };
+    let f = fx.k.term_var("f", selector_ty)?;
+    let half = fx.k.term_comb(f, t)?;
+    let proposition = fx.k.term_comb(half, t)?;
+
+    let left = fx.k.assume(fx.th, proposition)?;
+    let q = fx.q;
+    let right = fx.k.assume(fx.th, q)?;
+
+    let (definition, true_right) = (fx.conjunction.clone(), fx.true_right.clone());
+    let thm = fx.k.conj(fx.th, &definition, &true_right, &left, &right)?;
+
+    assert_eq!(thm.concl(), fx.k.mk_conj(fx.th, proposition, q)?);
+    Ok(())
+}
+
+#[test]
+fn conj_refuses_a_rule_that_is_not_the_true_right_one() -> Result<()> {
+    let mut fx = Fixture::new()?;
+    let true_left = fx.true_left.clone();
+    let (p, q) = (fx.p, fx.q);
+    let left = fx.k.assume(fx.th, p)?;
+    let right = fx.k.assume(fx.th, q)?;
+    let definition = fx.conjunction.clone();
+    // `⊢ (T = p) = p` is an equation of the right shape and the wrong meaning.
+    assert!(fx
+        .k
+        .conj(fx.th, &definition, &true_left, &left, &right)
+        .is_err());
     Ok(())
 }
