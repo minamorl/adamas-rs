@@ -150,7 +150,7 @@ impl Kernel {
 
     /// Beta-reduce to a fixed point. One `beta_rule` reduces the outermost
     /// redexes; applying a definition twice leaves more underneath.
-    fn normalise(&mut self, theory: TheoryId, mut thm: Thm) -> Result<Thm> {
+    pub(crate) fn normalise(&mut self, theory: TheoryId, mut thm: Thm) -> Result<Thm> {
         loop {
             let reduced = self.beta_rule(theory, &thm)?;
             if reduced.concl() == thm.concl() {
