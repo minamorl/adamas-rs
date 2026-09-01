@@ -7,6 +7,7 @@
 //! theorems about them live in the sibling modules.
 
 mod conjunction;
+pub mod implication;
 mod universal;
 
 use crate::kernel::{Kernel, Result, Term, TheoryId};
