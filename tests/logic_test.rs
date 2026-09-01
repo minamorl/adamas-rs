@@ -41,7 +41,11 @@ impl Fixture {
     }
 
     /// `λx:bool. body(x)`, with `x` the variable handed to `body`.
-    fn lambda(&mut self, name: &str, body: impl FnOnce(&mut Kernel, Term) -> Result<Term>) -> Result<Term> {
+    fn lambda(
+        &mut self,
+        name: &str,
+        body: impl FnOnce(&mut Kernel, Term) -> Result<Term>,
+    ) -> Result<Term> {
         let v = self.k.term_var(name, self.bool_ty)?;
         let b = body(&mut self.k, v)?;
         self.k.term_abs(v, b)

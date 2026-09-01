@@ -6,6 +6,9 @@
 //! assemble terms around constants the theory has already declared. The
 //! theorems about them live in the sibling modules.
 
+mod conjunction;
+mod universal;
+
 use crate::kernel::{Kernel, Result, Term, TheoryId};
 
 impl Kernel {
