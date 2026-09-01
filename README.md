@@ -131,15 +131,69 @@ a bad certificate still produced no theorem: the kernel refused it at
 cannot make a false theorem — that is the entire LCF thesis, observed rather
 than asserted.**
 
+## The logic layer
+
+`T`, `∧`, `⇒` and `∀`, each a `new_basic_definition` and nothing else, with
+their introduction and elimination rules derived from the ten primitives. No
+axiom is asserted anywhere: `Kernel::axioms` stays empty through the whole
+layer, and every test in `tests/` says so, because a theorem obtained by
+asserting it would satisfy every other assertion those tests make.
+
+```rust
+# use adamas::*;
+let mut k = Kernel::new();
+let th = k.new_theory("bool");
+let b = k.install_booleans(th)?;                        // ⊢ T, and ⊢ (p = T) = p
+let and = k.define_conjunction(th, &b.truth)?;
+let bool_ty = k.bool_ty();
+let p = k.term_var("p", bool_ty)?;
+
+let assumed = k.assume(th, p)?;                          // p ⊢ p
+let paired = k.conj(th, &and, &b.true_right, &assumed, &assumed)?;
+assert_eq!(paired.concl(), k.mk_conj(th, p, p)?);        // p ⊢ p ∧ p
+assert!(k.axioms(th).is_empty());
+# Ok::<(), Error>(())
+```
+
+`∧` is HOL Light's pair-selector encoding, `⇒` is `p ∧ q = p`, and `∀P` is `P`
+being the constantly-true predicate — so `MP` is a projection, `DISCH` is
+`DEDUCT_ANTISYM_RULE` between the two halves of an equation, and `SPEC` is
+application. Between `p` and `p = T` the traffic goes through `eqt_intro` and
+`eqt_elim`, which is why `⊢ (p = T) = p` has to exist before any of it does.
+
+`GEN`'s side condition — the variable must be free in no hypothesis — is not
+checked in `gen`. It does not need to be: the abstraction it performs is the
+kernel's `ABS`, which refuses.
+
+## The kernel frontier
+
+There is one claim in this README that `cargo test` cannot check. Add a line
+inside `src/kernel/` that hands out `Thm { theory, hyps, concl }` and every
+behaviour test in the crate still passes, doctests included — measured. What
+such a line breaks is a compile-time boundary, and a test observes values.
+
+So `scripts/kernel-frontier.sh` reads the diff instead. A change under
+`src/kernel/` has to be said out loud in a commit message:
+
+```
+kernel-frontier: <why>
+```
+
+Without that line it fails, however green the tests are. CI runs it on every
+pull request. The kernel has not moved since the port: 1,608 lines.
+
 ## Status
 
 Ported and tested: the kernel (33 tests), certificate replay with conditional
-rewriting (22 tests), and the compile-time forgery boundary (5 doctests).
+rewriting (22 tests), the compile-time forgery boundary (5 doctests), and the
+first stage of the logic layer — `T`, `∧`, `⇒`, `∀` and the syntax of the other
+connectives (47 tests).
 
-Not ported: the rewriter that *produces* certificates, and the mathematics built
-on top — `logic/`, `bridge/`, `service/`, the pattern layer. Those are the
-clever, heuristic, unverified part, which is precisely why they can wait: a
-certificate from any of them is checkable by what is already here.
+Not ported: the rewriter that *produces* certificates, `F`, `¬`, `∨`, `∃`, the
+classical layer, and the mathematics above it — `bridge/`, `service/`, the
+pattern layer. Those are the clever, heuristic, unverified part, which is
+precisely why they can wait: a certificate from any of them is checkable by what
+is already here.
 
 ## Building
 

@@ -29,20 +29,24 @@
 //! # }
 //! ```
 
+pub mod booleans;
 pub mod certificate;
 mod derived;
 mod intern;
 mod kernel;
+pub mod logic;
 pub mod matching;
 mod order;
 pub mod path;
 mod replay;
 pub mod rewriter;
 
+pub use booleans::Booleans;
 pub use certificate::{Certificate, Condition, Rule, RuleSet, Step};
 pub use kernel::{
     Error, Kernel, Result, Term, TermNode, TheoryId, Thm, Ty, TyNode, TypeDefinition,
 };
+pub use logic::implication::ImplicationRules;
 pub use matching::Match;
 pub use path::{path_to_string, PathStep};
 pub use rewriter::{Ordering, DEFAULT_LIMIT};
