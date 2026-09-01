@@ -34,6 +34,7 @@ pub mod certificate;
 mod derived;
 mod intern;
 mod kernel;
+pub mod logic;
 pub mod matching;
 mod order;
 pub mod path;
