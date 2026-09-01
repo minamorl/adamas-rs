@@ -17,7 +17,7 @@ struct Fixture {
     true_right: Thm,
     true_left: Thm,
     conjunction: Thm,
-    universal: Thm,
+    universal: Option<Thm>,
 }
 
 impl Fixture {
@@ -28,7 +28,7 @@ impl Fixture {
         let a = k.ty_var("A")?;
         let b = k.install_booleans(th)?;
         let conjunction = k.define_conjunction(th, &b.truth)?;
-        let universal = k.define_universal(th, &b.truth)?;
+        let universal = None;
         let p = k.term_var("p", bool_ty)?;
         let q = k.term_var("q", bool_ty)?;
         Ok(Fixture {
@@ -43,6 +43,22 @@ impl Fixture {
             conjunction,
             universal,
         })
+    }
+}
+
+impl Fixture {
+    /// The same theory with `∀` defined as well. Kept separate so a test only
+    /// installs what it is about: a fixture that defines everything makes
+    /// every test depend on every module.
+    fn with_universal() -> Result<Self> {
+        let mut fx = Fixture::new()?;
+        let truth = fx.truth.clone();
+        fx.universal = Some(fx.k.define_universal(fx.th, &truth)?);
+        Ok(fx)
+    }
+
+    fn universal(&self) -> Thm {
+        self.universal.clone().expect("fixture built without ∀")
     }
 }
 
@@ -172,7 +188,7 @@ fn a_projection_refuses_a_theorem_that_is_not_a_conjunction() -> Result<()> {
 
 #[test]
 fn universal_quantification_is_being_the_constantly_true_predicate() -> Result<()> {
-    let mut fx = Fixture::new()?;
+    let mut fx = Fixture::with_universal()?;
     let bool_ty = fx.k.bool_ty();
     let t = fx.k.constant(fx.th, "T", None)?;
 
@@ -186,22 +202,19 @@ fn universal_quantification_is_being_the_constantly_true_predicate() -> Result<(
     let quantifier_ty = fx.k.ty_fun(predicate_ty, bool_ty)?;
     let all = fx.k.constant(fx.th, "∀", Some(quantifier_ty))?;
     let expected = fx.k.term_eq(all, rhs)?;
-    assert_eq!(fx.universal.concl(), expected);
-    assert!(fx.universal.hyps().is_empty());
+    let universal = fx.universal();
+    assert_eq!(universal.concl(), expected);
+    assert!(universal.hyps().is_empty());
     Ok(())
 }
 
 #[test]
 fn gen_binds_a_variable_and_spec_lets_another_one_in() -> Result<()> {
-    let mut fx = Fixture::new()?;
+    let mut fx = Fixture::with_universal()?;
     let x = fx.k.term_var("x", fx.a)?;
     let reflexive = fx.k.refl(fx.th, x)?;
 
-    let (definition, true_right, truth) = (
-        fx.universal.clone(),
-        fx.true_right.clone(),
-        fx.truth.clone(),
-    );
+    let (definition, true_right, truth) = (fx.universal(), fx.true_right.clone(), fx.truth.clone());
     let general = fx.k.gen(fx.th, &definition, &true_right, x, &reflexive)?;
 
     let body = fx.k.term_eq(x, x)?;
@@ -218,17 +231,13 @@ fn gen_binds_a_variable_and_spec_lets_another_one_in() -> Result<()> {
 
 #[test]
 fn spec_carries_the_hypotheses_through() -> Result<()> {
-    let mut fx = Fixture::new()?;
+    let mut fx = Fixture::with_universal()?;
     let bool_ty = fx.k.bool_ty();
     let x = fx.k.term_var("x", bool_ty)?;
     let p = fx.p;
     let assumed = fx.k.assume(fx.th, p)?;
 
-    let (definition, true_right, truth) = (
-        fx.universal.clone(),
-        fx.true_right.clone(),
-        fx.truth.clone(),
-    );
+    let (definition, true_right, truth) = (fx.universal(), fx.true_right.clone(), fx.truth.clone());
     // `x` is free in no hypothesis of `p ⊢ p`, so it may be generalised.
     let general = fx.k.gen(fx.th, &definition, &true_right, x, &assumed)?;
     let instance = fx.k.spec(fx.th, &definition, &truth, &general, fx.q)?;
@@ -240,11 +249,11 @@ fn spec_carries_the_hypotheses_through() -> Result<()> {
 
 #[test]
 fn gen_refuses_a_variable_a_hypothesis_still_mentions() -> Result<()> {
-    let mut fx = Fixture::new()?;
+    let mut fx = Fixture::with_universal()?;
     let p = fx.p;
     let assumed = fx.k.assume(fx.th, p)?;
 
-    let (definition, true_right) = (fx.universal.clone(), fx.true_right.clone());
+    let (definition, true_right) = (fx.universal(), fx.true_right.clone());
     assert!(fx
         .k
         .gen(fx.th, &definition, &true_right, p, &assumed)
@@ -254,11 +263,11 @@ fn gen_refuses_a_variable_a_hypothesis_still_mentions() -> Result<()> {
 
 #[test]
 fn spec_refuses_a_theorem_that_is_not_a_quantification() -> Result<()> {
-    let mut fx = Fixture::new()?;
+    let mut fx = Fixture::with_universal()?;
     let p = fx.p;
     let assumed = fx.k.assume(fx.th, p)?;
 
-    let (definition, truth) = (fx.universal.clone(), fx.truth.clone());
+    let (definition, truth) = (fx.universal(), fx.truth.clone());
     assert!(fx
         .k
         .spec(fx.th, &definition, &truth, &assumed, fx.q)
@@ -268,7 +277,7 @@ fn spec_refuses_a_theorem_that_is_not_a_quantification() -> Result<()> {
 
 #[test]
 fn three_definitions_and_no_axiom() -> Result<()> {
-    let fx = Fixture::new()?;
+    let fx = Fixture::with_universal()?;
     assert!(fx.k.axioms(fx.th).is_empty());
     assert_eq!(fx.k.definitions(fx.th).len(), 3, "T, ∧ and ∀");
     Ok(())
