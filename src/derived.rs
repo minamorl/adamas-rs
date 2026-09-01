@@ -57,4 +57,41 @@ impl Kernel {
         let symmetric = self.sym(theory, thm)?;
         self.eq_mp(theory, &symmetric, truth)
     }
+
+    /// True when `term` is a beta-redex, `(λx. t) s`.
+    pub fn is_beta_redex(&self, term: Term) -> bool {
+        todo!("port Derived.beta_redex?")
+    }
+
+    /// Beta for an arbitrary argument: `⊢ (λx. t) s = t[x := s]`.
+    ///
+    /// The kernel's [`Kernel::beta`] only relates `(λx. t) v` to `t` for a
+    /// variable `v`, just as `fusion.ml` does. The general case is this:
+    /// beta-reduce against a fresh variable, then instantiate that variable to
+    /// the real argument.
+    pub fn beta_conv(&mut self, theory: TheoryId, term: Term) -> Result<Thm> {
+        todo!("port Derived.beta_conv")
+    }
+
+    /// `⊢ t = t'` where `t'` is `t` with every beta-redex reduced, outermost
+    /// first. Built by congruence out of [`Kernel::beta_conv`], so it is a
+    /// proof, not a rewrite someone has to be trusted about.
+    pub fn beta_reduce(&mut self, theory: TheoryId, term: Term) -> Result<Thm> {
+        todo!("port Derived.beta_reduce")
+    }
+
+    /// `Γ ⊢ p` ⟹ `Γ ⊢ p'`, where `p'` is the beta-normal form of `p`.
+    pub fn beta_rule(&mut self, theory: TheoryId, thm: &Thm) -> Result<Thm> {
+        todo!("port Derived.beta_rule")
+    }
+
+    /// `Γ ⊢ p` ⟹ `Γ ⊢ p = T`, using an instance of `⊢ (p = T) = p`.
+    pub fn eqt_intro(&mut self, theory: TheoryId, true_right: &Thm, thm: &Thm) -> Result<Thm> {
+        todo!("port Derived.eqt_intro")
+    }
+
+    /// `⊢ t = t` refined by reducing inside `t`.
+    fn congruence(&mut self, theory: TheoryId, term: Term) -> Result<Thm> {
+        todo!("port Derived.congruence")
+    }
 }

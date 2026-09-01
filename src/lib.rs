@@ -29,6 +29,7 @@
 //! # }
 //! ```
 
+pub mod booleans;
 pub mod certificate;
 mod derived;
 mod intern;
@@ -39,6 +40,7 @@ pub mod path;
 mod replay;
 pub mod rewriter;
 
+pub use booleans::Booleans;
 pub use certificate::{Certificate, Condition, Rule, RuleSet, Step};
 pub use kernel::{
     Error, Kernel, Result, Term, TermNode, TheoryId, Thm, Ty, TyNode, TypeDefinition,
