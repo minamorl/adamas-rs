@@ -28,3 +28,16 @@ jobs:
       # asserts a `Thm` cannot be constructed from outside the kernel.
       - name: Tests, including the doctests that pin the forgery boundary
         run: cargo test --all-features
+
+  # `cargo test` is blind here, so this is a separate job rather than a step:
+  # it reads the diff, not the crate.
+  frontier:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: The kernel does not grow when the library does
+        run: ./scripts/kernel-frontier.sh "${{ github.event.pull_request.base.sha }}"
