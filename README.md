@@ -131,6 +131,13 @@ a bad certificate still produced no theorem: the kernel refused it at
 cannot make a false theorem — that is the entire LCF thesis, observed rather
 than asserted.**
 
+The Ruby conversion layer is ported as composable values: `rewr`, `rewrites`,
+`ordered_rewr`, `repeat`, `sub`, `comb_conv`, `abs_conv`, `depth`, `redepth`,
+`once_depth`, `top_down`, and `first_redex`. The same conversion runs over a
+proof-producing `witness::Theorem` algebra or an untrusted `witness::Steps`
+algebra. The default rewriter remains leftmost-outermost, but now spells that
+policy as `repeat(first_redex(rewrites), limit)` and accepts another strategy.
+
 ## The logic layer
 
 `T`, `∧`, `⇒`, `∀`, `F`, `¬`, `∨` and `∃`, each a `new_basic_definition` and
@@ -201,10 +208,14 @@ pull request. The kernel has not moved since the port: 1,608 lines.
 ## Status
 
 Ported and tested: the kernel, certificate replay with conditional rewriting,
-the proof-producing rewriter, the compile-time forgery boundary, and the full
-constructive logic layer — `T`, `∧`, `⇒`, `∀`, `F`, `¬`, `∨`, and `∃`. Logic
-installation now also derives Ruby's complete 16-rule `RuleSet` in registration
-order; every member is hypothesis-free and the theory remains axiom-free.
+the composable conversion layer and both witness algebras, the proof-producing
+rewriter, the compile-time forgery boundary, and the full constructive logic
+layer — `T`, `∧`, `⇒`, `∀`, `F`, `¬`, `∨`, and `∃`. Conversion includes the
+bottom-up, top-down, first-redex, bounded-repeat, and HOL Light ordered rewrite
+strategies; emitted certificates are replayed in tests, including a malicious
+conversion whose false result is refused. Logic installation also derives
+Ruby's complete 16-rule `RuleSet` in registration order; every member is
+hypothesis-free and the theory remains axiom-free.
 
 The opt-in classical layer adds polymorphic choice, the ETA and SELECT axioms,
 `SELECT_RULE`, and Diaconescu-derived excluded middle. On top of it, `taut`

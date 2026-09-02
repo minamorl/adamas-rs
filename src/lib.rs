@@ -31,6 +31,7 @@
 
 pub mod booleans;
 pub mod certificate;
+pub mod conversion;
 mod derived;
 mod intern;
 mod kernel;
@@ -40,6 +41,7 @@ mod order;
 pub mod path;
 mod replay;
 pub mod rewriter;
+pub mod witness;
 
 pub use booleans::Booleans;
 pub use certificate::{Certificate, Condition, Rule, RuleSet, Step};
