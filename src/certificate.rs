@@ -129,7 +129,7 @@ pub struct Rule {
 ///
 /// Order of registration is the order the rewriter tries them in, so it is
 /// kept rather than sorted by name.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct RuleSet {
     rules: Vec<Rule>,
 }
