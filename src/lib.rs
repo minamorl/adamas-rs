@@ -46,11 +46,13 @@ pub use certificate::{Certificate, Condition, Rule, RuleSet, Step};
 pub use kernel::{
     Error, Kernel, Result, Term, TermNode, TheoryId, Thm, Ty, TyNode, TypeDefinition,
 };
+pub use logic::classical::ClassicalBundle;
 pub use logic::disjunction::DisjunctionRules;
 pub use logic::existential::ExistentialRules;
 pub use logic::falsity::FalsityRules;
 pub use logic::implication::ImplicationRules;
 pub use logic::negation::NegationRules;
+pub use logic::LogicBootstrap;
 pub use matching::Match;
 pub use path::{path_to_string, PathStep};
 pub use rewriter::{Ordering, DEFAULT_LIMIT};
