@@ -133,11 +133,11 @@ than asserted.**
 
 ## The logic layer
 
-`T`, `∧`, `⇒` and `∀`, each a `new_basic_definition` and nothing else, with
-their introduction and elimination rules derived from the ten primitives. No
-axiom is asserted anywhere: `Kernel::axioms` stays empty through the whole
-layer, and every test in `tests/` says so, because a theorem obtained by
-asserting it would satisfy every other assertion those tests make.
+`T`, `∧`, `⇒`, `∀`, `F`, `¬`, `∨` and `∃`, each a `new_basic_definition` and
+nothing else, with their introduction and elimination rules derived from the
+ten primitives. No axiom is asserted anywhere: `Kernel::axioms` stays empty
+through the whole layer, and every connective's tests say so, because a theorem
+obtained by asserting it would satisfy every other assertion those tests make.
 
 ```rust
 # use adamas::*;
@@ -165,6 +165,11 @@ application. Between `p` and `p = T` the traffic goes through `eqt_intro` and
 checked in `gen`. It does not need to be: the abstraction it performs is the
 kernel's `ABS`, which refuses.
 
+`F` is `∀p. p`, negation is implication to `F`, and `∨` and `∃` use their
+intuitionistic continuation encodings. `CONTR`, `DISJ_CASES`, and `CHOOSE` are
+therefore derived rules too; in particular, `CHOOSE` inherits its
+eigenvariable condition from the same kernel `ABS` check.
+
 ## The kernel frontier
 
 There is one claim in this README that `cargo test` cannot check. Add a line
@@ -185,15 +190,15 @@ pull request. The kernel has not moved since the port: 1,608 lines.
 ## Status
 
 Ported and tested: the kernel (33 tests), certificate replay with conditional
-rewriting (22 tests), the compile-time forgery boundary (5 doctests), and the
-first stage of the logic layer — `T`, `∧`, `⇒`, `∀` and the syntax of the other
-connectives (47 tests).
+rewriting (22 tests), the rewriter that produces certificates (17 tests), the
+compile-time forgery boundary (5 doctests), and the intuitionistic logic layer
+— `T`, `∧`, `⇒`, `∀`, `F`, `¬`, `∨`, and `∃`, including their definitions and
+derived rules (88 tests).
 
-Not ported: the rewriter that *produces* certificates, `F`, `¬`, `∨`, `∃`, the
-classical layer, and the mathematics above it — `bridge/`, `service/`, the
-pattern layer. Those are the clever, heuristic, unverified part, which is
-precisely why they can wait: a certificate from any of them is checkable by what
-is already here.
+Not ported: the classical layer, the full logic `RuleSet`/Simp wiring, and the
+mathematics above it — `bridge/`, `service/`, the pattern layer. Those are the
+clever, heuristic, unverified part, which is precisely why they can wait: a
+certificate from any of them is checkable by what is already here.
 
 ## Building
 

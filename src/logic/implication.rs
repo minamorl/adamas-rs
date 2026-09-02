@@ -8,6 +8,7 @@ use crate::kernel::{Error, Kernel, Result, Term, TheoryId, Thm, Ty};
 
 /// The theorems `⇒`'s rules reach for. Ruby carries these in a `Data` bundle;
 /// here they are a struct so the signatures stay short.
+#[derive(Clone)]
 pub struct ImplicationRules {
     /// `⊢ ⇒ = (λp q. p ∧ q = p)`.
     pub definition: Thm,

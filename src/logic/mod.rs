@@ -7,7 +7,11 @@
 //! theorems about them live in the sibling modules.
 
 mod conjunction;
+pub mod disjunction;
+pub mod existential;
+pub mod falsity;
 pub mod implication;
+pub mod negation;
 mod universal;
 
 use crate::kernel::{Kernel, Result, Term, TermNode, TheoryId};
