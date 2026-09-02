@@ -6,6 +6,7 @@
 //! assemble terms around constants the theory has already declared. The
 //! theorems about them live in the sibling modules.
 
+pub mod classical;
 mod conjunction;
 pub mod disjunction;
 pub mod existential;
@@ -14,9 +15,119 @@ pub mod implication;
 pub mod negation;
 mod universal;
 
-use crate::kernel::{Kernel, Result, Term, TermNode, TheoryId};
+use crate::booleans::Booleans;
+use crate::kernel::{Kernel, Result, Term, TermNode, TheoryId, Thm};
+
+use self::disjunction::DisjunctionRules;
+use self::existential::ExistentialRules;
+use self::falsity::FalsityRules;
+use self::implication::ImplicationRules;
+use self::negation::NegationRules;
+
+/// The constructive definitions and rule handles installed by
+/// [`Kernel::install_logic`].
+///
+/// This is Ruby adamas's `Logic::Bootstrap`, minus the `Simp` fields that do
+/// not exist in this crate yet. Installing it declares only definitions and
+/// leaves the theory's axiom ledger empty.
+#[derive(Clone)]
+pub struct LogicBootstrap {
+    pub booleans: Booleans,
+    pub truth: Thm,
+    pub true_const: Term,
+    pub falsity_const: Term,
+    pub conjunction_const: Term,
+    pub universal_const: Term,
+    pub implication_const: Term,
+    pub disjunction_const: Term,
+    pub existential_const: Term,
+    pub negation_const: Term,
+    pub truth_definition: Thm,
+    pub conjunction_definition: Thm,
+    pub universal_definition: Thm,
+    pub implication_definition: Thm,
+    pub falsity_definition: Thm,
+    pub disjunction_definition: Thm,
+    pub existential_definition: Thm,
+    pub negation_definition: Thm,
+    pub implication_rules: ImplicationRules,
+    pub falsity_rules: FalsityRules,
+    pub disjunction_rules: DisjunctionRules,
+    pub existential_rules: ExistentialRules,
+    pub negation_rules: NegationRules,
+}
 
 impl Kernel {
+    /// Install the complete constructive logic layer in Ruby's definition
+    /// order. No axiom is asserted; classical logic remains a separate opt-in.
+    pub fn install_logic(&mut self, theory: TheoryId) -> Result<LogicBootstrap> {
+        let booleans = self.install_booleans(theory)?;
+        let conjunction_definition = self.define_conjunction(theory, &booleans.truth)?;
+        let universal_definition = self.define_universal(theory, &booleans.truth)?;
+        let implication_definition = self.define_implication(theory)?;
+        let falsity_definition = self.define_falsity(theory)?;
+        let disjunction_definition = self.define_disjunction(theory)?;
+        let existential_definition = self.define_existential(theory)?;
+        let negation_definition = self.define_negation(theory)?;
+
+        let implication_rules = ImplicationRules {
+            definition: implication_definition.clone(),
+            conjunction_definition: conjunction_definition.clone(),
+            truth: booleans.truth.clone(),
+            true_right: booleans.true_right.clone(),
+        };
+        let falsity_rules = FalsityRules {
+            definition: falsity_definition.clone(),
+            universal_definition: universal_definition.clone(),
+            truth: booleans.truth.clone(),
+        };
+        let disjunction_rules = DisjunctionRules {
+            definition: disjunction_definition.clone(),
+            universal_definition: universal_definition.clone(),
+            implication_rules: implication_rules.clone(),
+            truth: booleans.truth.clone(),
+            true_right: booleans.true_right.clone(),
+        };
+        let existential_rules = ExistentialRules {
+            definition: existential_definition.clone(),
+            universal_definition: universal_definition.clone(),
+            implication_rules: implication_rules.clone(),
+            truth: booleans.truth.clone(),
+            true_right: booleans.true_right.clone(),
+        };
+        let negation_rules = NegationRules {
+            definition: negation_definition.clone(),
+            implication_rules: implication_rules.clone(),
+            falsity_rules: falsity_rules.clone(),
+        };
+
+        Ok(LogicBootstrap {
+            truth: booleans.truth.clone(),
+            true_const: booleans.true_const,
+            falsity_const: self.constant(theory, "F", None)?,
+            conjunction_const: self.constant(theory, "∧", None)?,
+            universal_const: self.constant(theory, "∀", None)?,
+            implication_const: self.constant(theory, "⇒", None)?,
+            disjunction_const: self.constant(theory, "∨", None)?,
+            existential_const: self.constant(theory, "∃", None)?,
+            negation_const: self.constant(theory, "¬", None)?,
+            truth_definition: booleans.definition.clone(),
+            conjunction_definition,
+            universal_definition,
+            implication_definition,
+            falsity_definition,
+            disjunction_definition,
+            existential_definition,
+            negation_definition,
+            implication_rules,
+            falsity_rules,
+            disjunction_rules,
+            existential_rules,
+            negation_rules,
+            booleans,
+        })
+    }
+
     /// `∀x. body`, as the term `∀ (λx. body)`.
     pub fn mk_forall(&mut self, theory: TheoryId, var: Term, body: Term) -> Result<Term> {
         self.mk_quantified(theory, "∀", var, body)

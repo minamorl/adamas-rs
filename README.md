@@ -139,19 +139,27 @@ ten primitives. No axiom is asserted anywhere: `Kernel::axioms` stays empty
 through the whole layer, and every connective's tests say so, because a theorem
 obtained by asserting it would satisfy every other assertion those tests make.
 
+Classical logic is deliberately separate. `logic::classical::install` declares
+`@ : (A → bool) → A` and asserts exactly two opt-in axioms, ETA followed by
+SELECT. It then derives `⊢ ∀p. p ∨ ¬p` from SELECT by Diaconescu's construction;
+excluded middle is not a third axiom.
+
 ```rust
 # use adamas::*;
+# use adamas::logic::classical;
 let mut k = Kernel::new();
-let th = k.new_theory("bool");
-let b = k.install_booleans(th)?;                        // ⊢ T, and ⊢ (p = T) = p
-let and = k.define_conjunction(th, &b.truth)?;
+let th = k.new_theory("logic");
+let logic = k.install_logic(th)?;
+assert!(k.axioms(th).is_empty());                       // constructive by default
+assert!(!k.has_constant(th, "@"));
+
+let choice = classical::install(&mut k, th, &logic)?;  // ETA, then SELECT
 let bool_ty = k.bool_ty();
 let p = k.term_var("p", bool_ty)?;
-
-let assumed = k.assume(th, p)?;                          // p ⊢ p
-let paired = k.conj(th, &and, &b.true_right, &assumed, &assumed)?;
-assert_eq!(paired.concl(), k.mk_conj(th, p, p)?);        // p ⊢ p ∧ p
-assert!(k.axioms(th).is_empty());
+let em = classical::em(&mut k, th, &choice, &logic, p)?;
+assert_eq!(em.concl(), k.excluded_middle(th, p)?);       // ⊢ p ∨ ¬p
+assert!(em.hyps().is_empty());
+assert_eq!(k.axioms(th).len(), 2);                       // EM was derived
 # Ok::<(), Error>(())
 ```
 
@@ -193,12 +201,14 @@ Ported and tested: the kernel (33 tests), certificate replay with conditional
 rewriting (22 tests), the rewriter that produces certificates (17 tests), the
 compile-time forgery boundary (5 doctests), and the intuitionistic logic layer
 — `T`, `∧`, `⇒`, `∀`, `F`, `¬`, `∨`, and `∃`, including their definitions and
-derived rules (88 tests).
+derived rules (88 tests). The opt-in classical layer adds polymorphic choice,
+the ETA and SELECT axioms, `SELECT_RULE`, and Diaconescu-derived excluded middle
+(9 tests).
 
-Not ported: the classical layer, the full logic `RuleSet`/Simp wiring, and the
-mathematics above it — `bridge/`, `service/`, the pattern layer. Those are the
-clever, heuristic, unverified part, which is precisely why they can wait: a
-certificate from any of them is checkable by what is already here.
+Not ported: the full logic `RuleSet`/Simp wiring and the mathematics above it —
+`bridge/`, `service/`, the pattern layer. Those are the clever, heuristic,
+unverified part, which is precisely why they can wait: a certificate from any
+of them is checkable by what is already here.
 
 ## Building
 

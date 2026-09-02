@@ -8,6 +8,7 @@
 use crate::kernel::{Kernel, Result, Term, TheoryId, Thm};
 
 /// What [`Kernel::install_booleans`] leaves in a theory.
+#[derive(Clone)]
 pub struct Booleans {
     /// `⊢ T = ((λp. p) = (λp. p))`, the defining equation.
     pub definition: Thm,
