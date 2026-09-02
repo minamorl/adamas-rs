@@ -13,6 +13,8 @@ pub mod existential;
 pub mod falsity;
 pub mod implication;
 pub mod negation;
+pub mod simp;
+pub mod taut;
 mod universal;
 
 use crate::booleans::Booleans;
@@ -23,13 +25,14 @@ use self::existential::ExistentialRules;
 use self::falsity::FalsityRules;
 use self::implication::ImplicationRules;
 use self::negation::NegationRules;
+use self::simp::SimpRules;
 
 /// The constructive definitions and rule handles installed by
 /// [`Kernel::install_logic`].
 ///
-/// This is Ruby adamas's `Logic::Bootstrap`, minus the `Simp` fields that do
-/// not exist in this crate yet. Installing it declares only definitions and
-/// leaves the theory's axiom ledger empty.
+/// This is Ruby adamas's `Logic::Bootstrap`. Installing it declares only
+/// definitions, derives the logical simp set, and leaves the theory's axiom
+/// ledger empty.
 #[derive(Clone)]
 pub struct LogicBootstrap {
     pub booleans: Booleans,
@@ -55,6 +58,8 @@ pub struct LogicBootstrap {
     pub disjunction_rules: DisjunctionRules,
     pub existential_rules: ExistentialRules,
     pub negation_rules: NegationRules,
+    pub simp_rules: SimpRules,
+    pub rules: crate::certificate::RuleSet,
 }
 
 impl Kernel {
@@ -100,6 +105,16 @@ impl Kernel {
             implication_rules: implication_rules.clone(),
             falsity_rules: falsity_rules.clone(),
         };
+        let simp_rules = SimpRules {
+            booleans: booleans.clone(),
+            conjunction_definition: conjunction_definition.clone(),
+            universal_definition: universal_definition.clone(),
+            implication_rules: implication_rules.clone(),
+            falsity_rules: falsity_rules.clone(),
+            disjunction_rules: disjunction_rules.clone(),
+            negation_rules: negation_rules.clone(),
+        };
+        let rules = simp::install(self, theory, &simp_rules)?;
 
         Ok(LogicBootstrap {
             truth: booleans.truth.clone(),
@@ -124,6 +139,8 @@ impl Kernel {
             disjunction_rules,
             existential_rules,
             negation_rules,
+            simp_rules,
+            rules,
             booleans,
         })
     }

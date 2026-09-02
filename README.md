@@ -146,17 +146,20 @@ excluded middle is not a third axiom.
 
 ```rust
 # use adamas::*;
-# use adamas::logic::classical;
+# use adamas::logic::{classical, taut};
 let mut k = Kernel::new();
 let th = k.new_theory("logic");
 let logic = k.install_logic(th)?;
 assert!(k.axioms(th).is_empty());                       // constructive by default
 assert!(!k.has_constant(th, "@"));
+assert_eq!(logic.rules.len(), 16);                      // derived simp rules
 
 let choice = classical::install(&mut k, th, &logic)?;  // ETA, then SELECT
 let bool_ty = k.bool_ty();
 let p = k.term_var("p", bool_ty)?;
-let em = classical::em(&mut k, th, &choice, &logic, p)?;
+let formula = k.excluded_middle(th, p)?;
+let em = taut::prove(&mut k, th, &logic, &choice, formula)?
+    .expect("excluded middle is a tautology");
 assert_eq!(em.concl(), k.excluded_middle(th, p)?);       // ⊢ p ∨ ¬p
 assert!(em.hyps().is_empty());
 assert_eq!(k.axioms(th).len(), 2);                       // EM was derived
@@ -197,18 +200,22 @@ pull request. The kernel has not moved since the port: 1,608 lines.
 
 ## Status
 
-Ported and tested: the kernel (33 tests), certificate replay with conditional
-rewriting (22 tests), the rewriter that produces certificates (17 tests), the
-compile-time forgery boundary (5 doctests), and the intuitionistic logic layer
-— `T`, `∧`, `⇒`, `∀`, `F`, `¬`, `∨`, and `∃`, including their definitions and
-derived rules (88 tests). The opt-in classical layer adds polymorphic choice,
-the ETA and SELECT axioms, `SELECT_RULE`, and Diaconescu-derived excluded middle
-(9 tests).
+Ported and tested: the kernel, certificate replay with conditional rewriting,
+the proof-producing rewriter, the compile-time forgery boundary, and the full
+constructive logic layer — `T`, `∧`, `⇒`, `∀`, `F`, `¬`, `∨`, and `∃`. Logic
+installation now also derives Ruby's complete 16-rule `RuleSet` in registration
+order; every member is hypothesis-free and the theory remains axiom-free.
 
-Not ported: the full logic `RuleSet`/Simp wiring and the mathematics above it —
-`bridge/`, `service/`, the pattern layer. Those are the clever, heuristic,
-unverified part, which is precisely why they can wait: a certificate from any
-of them is checkable by what is already here.
+The opt-in classical layer adds polymorphic choice, the ETA and SELECT axioms,
+`SELECT_RULE`, and Diaconescu-derived excluded middle. On top of it, `taut`
+proof-produces propositional tautologies by splitting at most 12 boolean atoms,
+simplifying each leaf through the logical `RuleSet`, and replaying the emitted
+certificates. A failed search returns `None`, not a theorem.
+
+Not ported: the mathematics above the logic layer — `bridge/`, `service/`, and
+the pattern layer. Those are the clever, heuristic, unverified part, which is
+precisely why they can wait: a certificate from any of them is checkable by
+what is already here.
 
 ## Building
 

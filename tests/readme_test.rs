@@ -4,7 +4,7 @@
 //! `#` lines and would not compile on their own. This one would, so it is
 //! compiled: a sample that stops being true is worse than no sample.
 
-use adamas::logic::classical;
+use adamas::logic::{classical, taut};
 use adamas::{Kernel, Result};
 
 #[test]
@@ -18,9 +18,12 @@ fn the_readme_example_is_true() -> Result<()> {
     let choice = classical::install(&mut k, th, &logic)?; // ETA, then SELECT
     let bool_ty = k.bool_ty();
     let p = k.term_var("p", bool_ty)?;
-    let em = classical::em(&mut k, th, &choice, &logic, p)?;
+    let formula = k.excluded_middle(th, p)?;
+    let em =
+        taut::prove(&mut k, th, &logic, &choice, formula)?.expect("excluded middle is a tautology");
     assert_eq!(em.concl(), k.excluded_middle(th, p)?); // ⊢ p ∨ ¬p
     assert!(em.hyps().is_empty());
     assert_eq!(k.axioms(th).len(), 2); // EM was derived
+    assert_eq!(logic.rules.len(), 16); // proof-producing logical simp set
     Ok(())
 }
