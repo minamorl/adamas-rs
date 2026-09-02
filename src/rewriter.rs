@@ -1,25 +1,19 @@
 //! The untrusted half: look for something to do, and write down what was done.
-//! Ported from `lib/adamas/rewriter.rb` and the `first_redex` traversal.
+//! Ported from `lib/adamas/rewriter.rb`.
 //!
 //! Nothing here is trusted, and that is the point of the arrangement. It may
 //! pick a poor strategy, run out of budget, or be thrown away for something
 //! with a proper term index — what it emits is a [`Certificate`], a *claim*,
 //! and [`Kernel::prove_certificate`] is where the claim meets the ten rules.
 //!
-//! The strategy is leftmost-outermost, first matching rule in registration
-//! order, repeated until nothing applies or the budget runs out.
-//!
-//! **Not ported from the Ruby:** the conversion-combinator algebra, in which a
-//! strategy is a composable *value* (`Conversion.repeat(first_redex(rewrites))`)
-//! so a caller can ask for innermost-first or a single top pass; and the
-//! discrimination-tree index that narrows candidate rules before matching. The
-//! first is an API for composing strategies, the second is a speed-up: this
-//! module tries every rule in order. Neither is load-bearing for soundness —
-//! replay refuses a bad step however it was found.
+//! The default is now expressed as the value
+//! `repeat(first_redex(rewrites), limit)`. Callers may inject another function
+//! from leaf conversion to strategy without changing either witness algebra.
 
-use crate::certificate::{Certificate, Condition, RuleSet, Step};
-use crate::kernel::{Error, Kernel, Result, Term, TermNode};
-use crate::path::PathStep;
+use crate::certificate::{Certificate, RuleSet};
+use crate::conversion::{first_redex, repeat, rewrites_with, Conv};
+use crate::kernel::{Error, Kernel, Result, Term};
+use crate::witness::Steps;
 
 pub const DEFAULT_LIMIT: usize = 200;
 
@@ -47,27 +41,42 @@ impl Kernel {
         limit: usize,
         ordering: Ordering,
     ) -> Result<Certificate> {
+        self.rewrite_with_strategy(term, rules, limit, ordering, first_redex)
+    }
+
+    /// The same rewriter with an explicit conversion strategy.
+    ///
+    /// `strategy` receives the leaf conversion and returns the traversal to
+    /// repeat. The repeat budget counts successful strategy invocations, just
+    /// as Ruby's `Rewriter` does; the default `first_redex` emits one step per
+    /// invocation and therefore preserves the earlier public behaviour.
+    pub fn rewrite_with_strategy<F>(
+        &mut self,
+        term: Term,
+        rules: &RuleSet,
+        limit: usize,
+        ordering: Ordering,
+        strategy: F,
+    ) -> Result<Certificate>
+    where
+        F: FnOnce(Conv) -> Conv,
+    {
         if !self.closed(term) {
             return Err(Error::Type(format!(
                 "term has a dangling de Bruijn index: {}",
                 self.term_to_string(term)
             )));
         }
-        let mut steps = Vec::new();
-        let mut current = term;
-        let complete = loop {
-            if steps.len() >= limit {
-                break false;
-            }
-            match self.one_rewrite(current, rules, ordering)? {
-                None => break true,
-                Some((step, next)) => {
-                    steps.push(step);
-                    current = next;
-                }
-            }
-        };
-        Ok(Certificate::new(term, steps, current, complete))
+        let leaf = rewrites_with(rules, None, ordering == Ordering::Ordered);
+        let repeated = repeat(strategy(leaf), limit);
+        let outcome = repeated.run(self, &Steps::new(), term, 0)?;
+        let complete = outcome.stopped_by_nil();
+        Ok(Certificate::new(
+            term,
+            outcome.witness.steps,
+            outcome.witness.result,
+            complete,
+        ))
     }
 
     /// `⊢ term = normal_form`, in one call, for when the certificate itself is
@@ -83,92 +92,6 @@ impl Kernel {
     ) -> Result<crate::kernel::Thm> {
         let certificate = self.rewrite(term, rules, limit, ordering)?;
         self.prove_certificate(theory, &certificate, rules)
-    }
-
-    /// One leftmost-outermost rewrite: the step, and the whole term after it.
-    fn one_rewrite(
-        &mut self,
-        term: Term,
-        rules: &RuleSet,
-        ordering: Ordering,
-    ) -> Result<Option<(Step, Term)>> {
-        let mut path = Vec::new();
-        let Some((found_path, step, replacement)) =
-            self.find_redex(term, rules, ordering, &mut path, 0)?
-        else {
-            return Ok(None);
-        };
-        let rewritten = self.replace(term, &found_path, replacement)?;
-        Ok(Some((step, rewritten)))
-    }
-
-    /// Leftmost-outermost: this node first, then rator, then rand, then under a
-    /// binder.
-    fn find_redex(
-        &mut self,
-        term: Term,
-        rules: &RuleSet,
-        ordering: Ordering,
-        path: &mut Vec<PathStep>,
-        depth: usize,
-    ) -> Result<Option<(Vec<PathStep>, Step, Term)>> {
-        if let Some((step, replacement)) = self.try_rules_here(term, rules, ordering, path)? {
-            return Ok(Some((path.clone(), step, replacement)));
-        }
-        match self.term_node(term).clone() {
-            TermNode::Comb { rator, rand } => {
-                path.push(PathStep::Rator);
-                let found = self.find_redex(rator, rules, ordering, path, depth)?;
-                path.pop();
-                if found.is_some() {
-                    return Ok(found);
-                }
-                path.push(PathStep::Rand);
-                let found = self.find_redex(rand, rules, ordering, path, depth)?;
-                path.pop();
-                Ok(found)
-            }
-            TermNode::Abs { .. } => {
-                // Opened by *position*, the same choice `replace` will make on
-                // the way back, so the path means the same thing to both.
-                let body = self.open_body(term, depth)?;
-                path.push(PathStep::Body);
-                let found = self.find_redex(body, rules, ordering, path, depth + 1)?;
-                path.pop();
-                Ok(found)
-            }
-            _ => Ok(None),
-        }
-    }
-
-    fn try_rules_here(
-        &mut self,
-        term: Term,
-        rules: &RuleSet,
-        ordering: Ordering,
-        path: &[PathStep],
-    ) -> Result<Option<(Step, Term)>> {
-        let candidates: Vec<crate::certificate::Rule> = rules.iter().cloned().collect();
-        for rule in candidates {
-            let Some(m) = self.match_pattern(rule.lhs, term, &rule.variables) else {
-                continue;
-            };
-            let replacement = self.instantiate_match(&m, rule.rhs)?;
-            if ordering == Ordering::Ordered
-                && self.is_permutative(&rule)
-                && !self.term_greater(term, replacement)
-            {
-                continue;
-            }
-            let step = Step::new(path.to_vec(), &rule.name)
-                .with_types(m.type_subst.clone())
-                .with_terms(m.term_subst.clone())
-                // The rewriter does not try to discharge conditions; it records
-                // that it left them standing, and replay checks the count.
-                .with_conditions(vec![Condition::Assumed; rule.thm.hyps().len()]);
-            return Ok(Some((step, replacement)));
-        }
-        Ok(None)
     }
 
     /// A rule is permutative when each side matches the other — `m * n = n * m`
